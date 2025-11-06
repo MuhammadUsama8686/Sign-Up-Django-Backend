@@ -1,8 +1,10 @@
+# accounts/serializers.py
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from .models import Profile
 from django.core.exceptions import ValidationError as DjangoValidationError
+
 
 class SignupSerializer(serializers.Serializer):
     full_name = serializers.CharField(max_length=255)
@@ -23,17 +25,20 @@ class SignupSerializer(serializers.Serializer):
         try:
             validate_password(value)
         except DjangoValidationError as e:
-            raise serializers.ValidationError(list(e))
+            # Return ONLY the FIRST password error
+            if e.messages:
+                raise serializers.ValidationError(e.messages[0])
+            raise serializers.ValidationError("Invalid password.")
         return value
 
     def create(self, validated_data):
         email = validated_data.pop("email")
         password = validated_data.pop("password")
         full_name = validated_data.pop("full_name", "")
-        # create user: use email as username to keep things simple
+
         user = User.objects.create_user(username=email, email=email, password=password)
-        # create profile with rest fields
-        profile = Profile.objects.create(
+
+        Profile.objects.create(
             user=user,
             full_name=full_name,
             phone=validated_data.get("phone", ""),
